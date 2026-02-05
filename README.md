@@ -2,7 +2,7 @@
 
 A modern VRM model viewer built with Next.js, Three.js, and shadcn/ui. Features advanced lighting controls and VRMA animation playback support.
 
-![VRM Viewer Screenshot](./docs/Screenshot%202026-02-05%20at%2012.23.16%20PM.png)
+![VRM Viewer Screenshot](./docs/Screenshot%202026-02-05%20at%2012.23.16%E2%80%AFPM.png)
 
 ## ✨ Features
 

@@ -1,45 +1,61 @@
 import type * as THREE from 'three';
 import type { VRM } from '@pixiv/three-vrm';
+import { z } from 'zod';
 
-export interface LightConfig {
-  intensity: number;
-  color: string;
-  x?: number;
-  y?: number;
-  z?: number;
-  on: boolean;
-}
+// Zod Schemas
+export const LightConfigSchema = z.object({
+  intensity: z.number().min(0).max(5),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  x: z.number().optional(),
+  y: z.number().optional(),
+  z: z.number().optional(),
+  on: z.boolean(),
+});
 
-export interface LightsState {
-  key: LightConfig;
-  fill: LightConfig;
-  rim: LightConfig;
-  back: LightConfig;
-  ambient: LightConfig;
-}
+export const LightsStateSchema = z.object({
+  key: LightConfigSchema,
+  fill: LightConfigSchema,
+  rim: LightConfigSchema,
+  back: LightConfigSchema,
+  ambient: LightConfigSchema,
+});
 
+export const AnimationStateSchema = z.object({
+  isPlaying: z.boolean(),
+  animTime: z.number(),
+  animDuration: z.number(),
+  playbackSpeed: z.number().min(0.1).max(3),
+  animationName: z.string(),
+});
+
+export const EnvironmentStateSchema = z.object({
+  showGrid: z.boolean(),
+  bgColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  environmentPreset: z.string(),
+});
+
+export const LightPresetSchema = z.object({
+  name: z.string(),
+  lights: LightsStateSchema,
+});
+
+// Inferred Types from Zod Schemas
+export type LightConfig = z.infer<typeof LightConfigSchema>;
+export type LightsState = z.infer<typeof LightsStateSchema>;
+export type AnimationState = z.infer<typeof AnimationStateSchema> & {
+  mixer: THREE.AnimationMixer | null;
+  currentAction: THREE.AnimationAction | null;
+};
+export type EnvironmentState = z.infer<typeof EnvironmentStateSchema>;
+export type LightPreset = z.infer<typeof LightPresetSchema>;
+
+// Non-serializable viewer state (can't be validated with Zod)
 export interface ViewerState {
   scene: THREE.Scene | null;
   camera: THREE.PerspectiveCamera | null;
   renderer: THREE.WebGLRenderer | null;
   controls: any;
   currentVrm: VRM | null;
-}
-
-export interface AnimationState {
-  mixer: THREE.AnimationMixer | null;
-  currentAction: THREE.AnimationAction | null;
-  isPlaying: boolean;
-  animTime: number;
-  animDuration: number;
-  playbackSpeed: number;
-  animationName: string;
-}
-
-export interface EnvironmentState {
-  showGrid: boolean;
-  bgColor: string;
-  environmentPreset: string;
 }
 
 export const DEFAULT_CAMERA_POS: [number, number, number] = [0.0, 1.4, 3.0];

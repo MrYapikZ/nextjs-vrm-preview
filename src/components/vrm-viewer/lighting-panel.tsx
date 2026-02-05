@@ -1,6 +1,7 @@
 'use client';
 
-import { Sun, Lightbulb, Sparkles, Moon, Palette } from 'lucide-react';
+import { useRef } from 'react';
+import { Sun, Lightbulb, Sparkles, Moon, Palette, Download, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
@@ -8,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { type LightsState, LIGHT_PRESETS } from './types';
+import { type LightsState, LIGHT_PRESETS, LightsStateSchema } from './types';
 
 interface LightingPanelProps {
   lights: LightsState;
@@ -16,6 +17,8 @@ interface LightingPanelProps {
 }
 
 export function LightingPanel({ lights, onLightsChange }: LightingPanelProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const updateLight = (
     lightKey: keyof LightsState,
     property: string,
@@ -34,6 +37,56 @@ export function LightingPanel({ lights, onLightsChange }: LightingPanelProps) {
     onLightsChange(LIGHT_PRESETS[presetKey].lights);
   };
 
+  const savePresetToJson = () => {
+    const preset = {
+      name: 'Custom Preset',
+      exportedAt: new Date().toISOString(),
+      lights: lights,
+    };
+    const json = JSON.stringify(preset, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lighting-preset-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const loadPresetFromJson = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const parsed = JSON.parse(content);
+        
+        // Validate the lights data using Zod schema
+        const result = LightsStateSchema.safeParse(parsed.lights);
+        
+        if (result.success) {
+          onLightsChange(result.data);
+        } else {
+          console.error('Invalid lighting preset format:', result.error);
+          alert('Invalid lighting preset file. Please check the file format.');
+        }
+      } catch (error) {
+        console.error('Error parsing preset file:', error);
+        alert('Failed to load preset file. Please ensure it is a valid JSON file.');
+      }
+    };
+    reader.readAsText(file);
+    
+    // Reset the input so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <ScrollArea className="h-full">
       <div className="space-y-4 p-1">
@@ -45,18 +98,48 @@ export function LightingPanel({ lights, onLightsChange }: LightingPanelProps) {
               Lighting Presets
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-2">
-            {Object.entries(LIGHT_PRESETS).map(([key, preset]) => (
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              {Object.entries(LIGHT_PRESETS).map(([key, preset]) => (
+                <Button
+                  key={key}
+                  variant="outline"
+                  size="sm"
+                  className="justify-start text-xs"
+                  onClick={() => applyPreset(key as keyof typeof LIGHT_PRESETS)}
+                >
+                  {preset.name}
+                </Button>
+              ))}
+            </div>
+            <Separator />
+            <div className="flex gap-2">
               <Button
-                key={key}
-                variant="outline"
+                variant="secondary"
                 size="sm"
-                className="justify-start text-xs"
-                onClick={() => applyPreset(key as keyof typeof LIGHT_PRESETS)}
+                className="flex-1 text-xs"
+                onClick={savePresetToJson}
               >
-                {preset.name}
+                <Download className="mr-1 h-3 w-3" />
+                Save Preset
               </Button>
-            ))}
+              <Button
+                variant="secondary"
+                size="sm"
+                className="flex-1 text-xs"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="mr-1 h-3 w-3" />
+                Load Preset
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={loadPresetFromJson}
+                className="hidden"
+              />
+            </div>
           </CardContent>
         </Card>
 

@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@pixiv/three-vrm':
+        specifier: ^3.4.5
+        version: 3.4.5(three@0.182.0)
       next:
         specifier: 16.1.6
         version: 16.1.6(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -323,6 +326,62 @@ packages:
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
+
+  '@pixiv/three-vrm-core@3.4.5':
+    resolution: {integrity: sha512-w52JUwNUbeuGBLqc7/wVMGrN2jgyz67kQ3OplFT4ACF9qlepALXwUBrQJPlkf1Qtqrfbdd50kYJTQ2EO4m8Ang==}
+    peerDependencies:
+      three: '>=0.137'
+
+  '@pixiv/three-vrm-materials-hdr-emissive-multiplier@3.4.5':
+    resolution: {integrity: sha512-nFC1Cmc6oBmTaLBVBmvYTk1qDT+YOuCD/0P6AK6BPTG+zypMdJ1Cj2aTNjDK6Sx0NCrOdWUZ1sh0CITDcKsOFg==}
+    peerDependencies:
+      three: '>=0.137'
+
+  '@pixiv/three-vrm-materials-mtoon@3.4.5':
+    resolution: {integrity: sha512-3f4b4dFu+zg6ZmpJsRDLFBwRczS5AeBjRP2SLRbYNg9/WfqhiwB1S6BqB44cUI4jY92MgCeWOztYgtjuDx9RGQ==}
+    peerDependencies:
+      three: '>=0.137'
+
+  '@pixiv/three-vrm-materials-v0compat@3.4.5':
+    resolution: {integrity: sha512-zCGr60qT8sPBKqle2SptGqy0novxXb4LtIBPunDwfIDDkg0pt0WxRcWTCEHMRI+FiEfy1fwV6qTO0Aeev+Q6vw==}
+    peerDependencies:
+      three: '>=0.137'
+
+  '@pixiv/three-vrm-node-constraint@3.4.5':
+    resolution: {integrity: sha512-E7G0qFVYRxib52Ksrz0XpC8+hCC7IOHFniN5ka+Gplo1j60zly2pkEZdN7t8a2zq0F9Ofe5KaESp2EJy4PnkFw==}
+    peerDependencies:
+      three: '>=0.137'
+
+  '@pixiv/three-vrm-springbone@3.4.5':
+    resolution: {integrity: sha512-AHmSeoWY1QHTUa6kKkyPDVVsQm1uRpaUxL8l6JsrONUCReZRPo4oGwyOkipY3zKIF76n9pP7q3DE07qwlqhAFQ==}
+    peerDependencies:
+      three: '>=0.137'
+
+  '@pixiv/three-vrm@3.4.5':
+    resolution: {integrity: sha512-LbdlsLG2b4hvgjfUKObkl/wxkBeTwIqHJsPJMJTO4JU7mQ3KUwcwdclzoqW6ipQfz2e/QAsv+IzF40pGwaYSnA==}
+    peerDependencies:
+      three: '>=0.137'
+
+  '@pixiv/types-vrm-0.0@3.4.5':
+    resolution: {integrity: sha512-hVTxAaEBEQoheNDt6KcFoSx6dGDF3L8a7MeNdubHEHKJWWS0YaLtPISDScdoX/5sXPVu+sjBLsRCHX7R5Vgi4A==}
+
+  '@pixiv/types-vrmc-materials-hdr-emissive-multiplier-1.0@3.4.5':
+    resolution: {integrity: sha512-6LFX8XI52OT90RfNueCuJRE1WXugtdvFkagkmLvTFNenROWUJn54cZzwmqfzDcDaD2oVzRFjrJRrqFc6vfe91A==}
+
+  '@pixiv/types-vrmc-materials-mtoon-1.0@3.4.5':
+    resolution: {integrity: sha512-2evuadidd+X+3RuTnytNqoEq6Fk/O1VnnrpidFt44oPUL5SlVBKWMRyNfogXuUPBZnkZMdGIfUt9i20yoIImwQ==}
+
+  '@pixiv/types-vrmc-node-constraint-1.0@3.4.5':
+    resolution: {integrity: sha512-+LvtUqy3o2Ua1xablpId3Mby5ieTICGV+Mmi5fLNa/gkW1XhFk5ZDdfkv5r2dUjU0XkJsATrHFEROkSst6j2uQ==}
+
+  '@pixiv/types-vrmc-springbone-1.0@3.4.5':
+    resolution: {integrity: sha512-D/notEbNfGEuE+5Nia8RfTRAYHx8RSO8vJGnTbDM3/O7v6rr2XR62hwDjQda7mh2JL2oQKM3U2E1Fvx4shQaLA==}
+
+  '@pixiv/types-vrmc-springbone-extended-collider-1.0@3.4.5':
+    resolution: {integrity: sha512-e/dTjBwHCDpUE//FmSMkcDrXKl9iY8Tr3QNxQrWZDHKNvPoGvNvjsFsSjtVBniZe9FsVI7gou1qIZbdULE1jIg==}
+
+  '@pixiv/types-vrmc-vrm-1.0@3.4.5':
+    resolution: {integrity: sha512-6OIA1IinZ7h8DdxW8aToWowfHgr8qJ31cx2so7Tdj65eOIi59ohvskbWy3SFDG9Zt2tvN/M7Rr9W2rkb8LMFUA==}
 
   '@swc/helpers@0.5.15':
     resolution: {integrity: sha512-JQ5TuMi45Owi4/BIMAJBoSQoOJu12oOk/gADqlcUL9JEdHB8vyjUSsxqeNXnmXHjYKMi2WcYtezGEEhqUI/E2g==}
@@ -820,6 +879,65 @@ snapshots:
 
   '@next/swc-win32-x64-msvc@16.1.6':
     optional: true
+
+  '@pixiv/three-vrm-core@3.4.5(three@0.182.0)':
+    dependencies:
+      '@pixiv/types-vrm-0.0': 3.4.5
+      '@pixiv/types-vrmc-vrm-1.0': 3.4.5
+      three: 0.182.0
+
+  '@pixiv/three-vrm-materials-hdr-emissive-multiplier@3.4.5(three@0.182.0)':
+    dependencies:
+      '@pixiv/types-vrmc-materials-hdr-emissive-multiplier-1.0': 3.4.5
+      three: 0.182.0
+
+  '@pixiv/three-vrm-materials-mtoon@3.4.5(three@0.182.0)':
+    dependencies:
+      '@pixiv/types-vrm-0.0': 3.4.5
+      '@pixiv/types-vrmc-materials-mtoon-1.0': 3.4.5
+      three: 0.182.0
+
+  '@pixiv/three-vrm-materials-v0compat@3.4.5(three@0.182.0)':
+    dependencies:
+      '@pixiv/types-vrm-0.0': 3.4.5
+      '@pixiv/types-vrmc-materials-mtoon-1.0': 3.4.5
+      three: 0.182.0
+
+  '@pixiv/three-vrm-node-constraint@3.4.5(three@0.182.0)':
+    dependencies:
+      '@pixiv/types-vrmc-node-constraint-1.0': 3.4.5
+      three: 0.182.0
+
+  '@pixiv/three-vrm-springbone@3.4.5(three@0.182.0)':
+    dependencies:
+      '@pixiv/types-vrm-0.0': 3.4.5
+      '@pixiv/types-vrmc-springbone-1.0': 3.4.5
+      '@pixiv/types-vrmc-springbone-extended-collider-1.0': 3.4.5
+      three: 0.182.0
+
+  '@pixiv/three-vrm@3.4.5(three@0.182.0)':
+    dependencies:
+      '@pixiv/three-vrm-core': 3.4.5(three@0.182.0)
+      '@pixiv/three-vrm-materials-hdr-emissive-multiplier': 3.4.5(three@0.182.0)
+      '@pixiv/three-vrm-materials-mtoon': 3.4.5(three@0.182.0)
+      '@pixiv/three-vrm-materials-v0compat': 3.4.5(three@0.182.0)
+      '@pixiv/three-vrm-node-constraint': 3.4.5(three@0.182.0)
+      '@pixiv/three-vrm-springbone': 3.4.5(three@0.182.0)
+      three: 0.182.0
+
+  '@pixiv/types-vrm-0.0@3.4.5': {}
+
+  '@pixiv/types-vrmc-materials-hdr-emissive-multiplier-1.0@3.4.5': {}
+
+  '@pixiv/types-vrmc-materials-mtoon-1.0@3.4.5': {}
+
+  '@pixiv/types-vrmc-node-constraint-1.0@3.4.5': {}
+
+  '@pixiv/types-vrmc-springbone-1.0@3.4.5': {}
+
+  '@pixiv/types-vrmc-springbone-extended-collider-1.0@3.4.5': {}
+
+  '@pixiv/types-vrmc-vrm-1.0@3.4.5': {}
 
   '@swc/helpers@0.5.15':
     dependencies:

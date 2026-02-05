@@ -13,6 +13,10 @@ A modern VRM model viewer built with Next.js, Three.js, and shadcn/ui. Features 
 - **Modern UI** - Clean interface built with shadcn/ui components
 - **Real-time Controls** - Adjust all settings in real-time with immediate visual feedback
 
+## 🌐 Demo
+
+[https://vrmp.lolihunter.my.id](https://vrmp.lolihunter.my.id/)
+
 ## 🚀 Getting Started
 
 ### Prerequisites

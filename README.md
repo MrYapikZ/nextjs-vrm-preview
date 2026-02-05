@@ -84,6 +84,7 @@ The **Environment** tab allows you to:
 - **VRM Animation**: [@pixiv/three-vrm-animation](https://github.com/pixiv/three-vrm)
 - **UI Components**: [shadcn/ui](https://ui.shadcn.com/)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **Schema Validation**: [Zod](https://zod.dev/)
 - **Language**: TypeScript
 
 ## 📁 Project Structure

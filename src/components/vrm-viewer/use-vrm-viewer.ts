@@ -177,15 +177,17 @@ export function useVrmViewer() {
     );
     keyLight.position.set(lights.key.x!, lights.key.y!, lights.key.z!);
     keyLight.castShadow = true;
-    keyLight.shadow.mapSize.width = 2048;
-    keyLight.shadow.mapSize.height = 2048;
-    keyLight.shadow.camera.near = 0.1;
-    keyLight.shadow.camera.far = 20;
-    keyLight.shadow.camera.left = -5;
-    keyLight.shadow.camera.right = 5;
-    keyLight.shadow.camera.top = 5;
-    keyLight.shadow.camera.bottom = -5;
-    keyLight.shadow.bias = -0.0001;
+    keyLight.shadow.mapSize.width = 4096;
+    keyLight.shadow.mapSize.height = 4096;
+    keyLight.shadow.camera.near = 0.5;
+    keyLight.shadow.camera.far = 15;
+    keyLight.shadow.camera.left = -3;
+    keyLight.shadow.camera.right = 3;
+    keyLight.shadow.camera.top = 3;
+    keyLight.shadow.camera.bottom = -3;
+    // Increased bias to prevent shadow acne on curved surfaces
+    keyLight.shadow.bias = -0.002;
+    keyLight.shadow.normalBias = 0.02;
     scene.add(keyLight);
     keyLightRef.current = keyLight;
 
@@ -306,11 +308,61 @@ export function useVrmViewer() {
       VRMUtils.removeUnnecessaryJoints(vrm.scene);
       VRMUtils.rotateVRM0(vrm);
 
-      // Enable shadows
+      // Enable shadows and fix UV channel issues for depth materials
       vrm.scene.traverse((obj) => {
         if ((obj as THREE.Mesh).isMesh) {
-          obj.castShadow = true;
-          obj.receiveShadow = true;
+          const mesh = obj as THREE.Mesh;
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+
+          // Fix for shader errors with custom UV channels (uv2, uv3, uv4, uv5, etc.)
+          // VRM models may use multiple UV sets that Three.js depth materials don't support
+          // The MeshDepthMaterial shader tries to use MAP_UV which may reference uv5
+          // We create custom depth/distance materials without any texture maps
+          const material = mesh.material as THREE.Material;
+          
+          // Create a basic depth material that doesn't use any texture UV transforms
+          const customDepthMaterial = new THREE.MeshDepthMaterial({
+            depthPacking: THREE.RGBADepthPacking,
+          });
+          
+          // Handle alpha testing if the original material uses it
+          if ('alphaTest' in material && (material as THREE.MeshStandardMaterial).alphaTest > 0) {
+            const stdMat = material as THREE.MeshStandardMaterial;
+            customDepthMaterial.alphaTest = stdMat.alphaTest;
+            // Only copy the alpha map if using standard uv (uv attribute)
+            if (stdMat.alphaMap && mesh.geometry.attributes.uv) {
+              customDepthMaterial.alphaMap = stdMat.alphaMap;
+            }
+          }
+          
+          // Override the onBeforeCompile to remove any UV channel references beyond uv
+          customDepthMaterial.onBeforeCompile = (shader) => {
+            // Replace any MAP_UV, ALPHAMAP_UV etc. that might reference uv2-uv5 with just uv
+            shader.vertexShader = shader.vertexShader
+              .replace(/MAP_UV/g, 'uv')
+              .replace(/ALPHAMAP_UV/g, 'uv')
+              .replace(/LIGHTMAP_UV/g, 'uv')
+              .replace(/AOMAP_UV/g, 'uv')
+              .replace(/EMISSIVEMAP_UV/g, 'uv')
+              .replace(/BUMPMAP_UV/g, 'uv')
+              .replace(/NORMALMAP_UV/g, 'uv')
+              .replace(/DISPLACEMENTMAP_UV/g, 'uv')
+              .replace(/ROUGHNESSMAP_UV/g, 'uv')
+              .replace(/METALNESSMAP_UV/g, 'uv')
+              .replace(/SPECULARMAP_UV/g, 'uv');
+          };
+          
+          mesh.customDepthMaterial = customDepthMaterial;
+          
+          // Also set custom distance material for point light shadows
+          const customDistanceMaterial = new THREE.MeshDistanceMaterial();
+          customDistanceMaterial.onBeforeCompile = (shader) => {
+            shader.vertexShader = shader.vertexShader
+              .replace(/MAP_UV/g, 'uv')
+              .replace(/ALPHAMAP_UV/g, 'uv');
+          };
+          mesh.customDistanceMaterial = customDistanceMaterial;
         }
       });
 

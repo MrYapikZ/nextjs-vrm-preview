@@ -1,17 +1,20 @@
 'use client';
 
-import { Grid3X3, Palette, RotateCcw, Camera, Monitor } from 'lucide-react';
+import { Grid3X3, Palette, RotateCcw, Camera, Monitor, Focus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
 
 interface EnvironmentPanelProps {
   showGrid: boolean;
   bgColor: string;
+  focalLength: number;
   onToggleGrid: (show: boolean) => void;
   onBgColorChange: (color: string) => void;
   onResetCamera: () => void;
+  onFocalLengthChange: (focalLength: number) => void;
 }
 
 const PRESET_COLORS = [
@@ -25,12 +28,22 @@ const PRESET_COLORS = [
   { name: 'Soft White', color: '#f5f5f5' },
 ];
 
+const FOCAL_LENGTH_PRESETS = [
+  { name: '24mm', value: 24 },
+  { name: '35mm', value: 35 },
+  { name: '50mm', value: 50 },
+  { name: '85mm', value: 85 },
+  { name: '135mm', value: 135 },
+];
+
 export function EnvironmentPanel({
   showGrid,
   bgColor,
+  focalLength,
   onToggleGrid,
   onBgColorChange,
   onResetCamera,
+  onFocalLengthChange,
 }: EnvironmentPanelProps) {
   return (
     <div className="space-y-4 p-1">
@@ -55,6 +68,58 @@ export function EnvironmentPanel({
           <p className="text-xs text-muted-foreground">
             Use mouse to orbit, scroll to zoom, right-click to pan.
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Focal Length */}
+      <Card className="border-border/50 bg-card/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm font-medium">
+            <Focus className="h-4 w-4" />
+            Focal Length
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground">Focal Length</Label>
+              <span className="text-xs font-medium">{focalLength}mm</span>
+            </div>
+            <Slider
+              value={[focalLength]}
+              onValueChange={([value]) => onFocalLengthChange(value)}
+              min={14}
+              max={200}
+              step={1}
+              className="w-full"
+            />
+            <div className="flex justify-between text-[10px] text-muted-foreground">
+              <span>14mm</span>
+              <span>Wide</span>
+              <span>Normal</span>
+              <span>Telephoto</span>
+              <span>200mm</span>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Presets</Label>
+            <div className="flex flex-wrap gap-1">
+              {FOCAL_LENGTH_PRESETS.map((preset) => (
+                <button
+                  key={preset.value}
+                  type="button"
+                  className={`rounded px-2 py-1 text-xs transition-all ${
+                    focalLength === preset.value
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted hover:bg-muted/80'
+                  }`}
+                  onClick={() => onFocalLengthChange(preset.value)}
+                >
+                  {preset.name}
+                </button>
+              ))}
+            </div>
+          </div>
         </CardContent>
       </Card>
 

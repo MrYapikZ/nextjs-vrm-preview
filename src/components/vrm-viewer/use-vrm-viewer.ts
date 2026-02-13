@@ -41,6 +41,7 @@ export function useVrmViewer() {
   const [showGrid, setShowGrid] = useState(true);
   const [bgColor, setBgColor] = useState('#1a1a2e');
   const [hasVrm, setHasVrm] = useState(false);
+  const [focalLength, setFocalLengthState] = useState(35);
 
   const [animationState, setAnimationState] = useState<AnimationState>({
     mixer: null,
@@ -520,6 +521,19 @@ export function useVrmViewer() {
     }
   }, []);
 
+  // Set camera focal length
+  const setFocalLength = useCallback((focal: number) => {
+    setFocalLengthState(focal);
+    if (cameraRef.current) {
+      // Convert focal length to FOV: FOV = 2 * atan(sensorHeight / (2 * focalLength))
+      // Using 35mm full-frame sensor height (24mm)
+      const sensorHeight = 24;
+      const fov = 2 * Math.atan(sensorHeight / (2 * focal)) * (180 / Math.PI);
+      cameraRef.current.fov = fov;
+      cameraRef.current.updateProjectionMatrix();
+    }
+  }, []);
+
   // Initialize on mount
   useEffect(() => {
     const cleanup = initScene();
@@ -547,5 +561,7 @@ export function useVrmViewer() {
     seekAnimation,
     resetAnimation,
     resetCamera,
+    focalLength,
+    setFocalLength,
   };
 }

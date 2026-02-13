@@ -37,6 +37,8 @@ export function VrmViewer() {
     seekAnimation,
     resetAnimation,
     resetCamera,
+    focalLength,
+    setFocalLength,
   } = useVrmViewer();
 
   const vrmInputRef = useRef<HTMLInputElement>(null);
@@ -197,9 +199,11 @@ export function VrmViewer() {
                 <EnvironmentPanel
                   showGrid={showGrid}
                   bgColor={bgColor}
+                  focalLength={focalLength}
                   onToggleGrid={toggleGrid}
                   onBgColorChange={updateBgColor}
                   onResetCamera={resetCamera}
+                  onFocalLengthChange={setFocalLength}
                 />
               </TabsContent>
             </ScrollArea>

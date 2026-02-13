@@ -42,6 +42,8 @@ export function useVrmViewer() {
   const [bgColor, setBgColor] = useState('#1a1a2e');
   const [hasVrm, setHasVrm] = useState(false);
   const [focalLength, setFocalLengthState] = useState(35);
+  const [cameraPosition, setCameraPositionState] = useState({ x: DEFAULT_CAMERA_POS[0], y: DEFAULT_CAMERA_POS[1], z: DEFAULT_CAMERA_POS[2] });
+  const [cameraTarget, setCameraTargetState] = useState({ x: DEFAULT_TARGET_POS[0], y: DEFAULT_TARGET_POS[1], z: DEFAULT_TARGET_POS[2] });
 
   const [animationState, setAnimationState] = useState<AnimationState>({
     mixer: null,
@@ -518,6 +520,17 @@ export function useVrmViewer() {
       cameraRef.current.position.set(...DEFAULT_CAMERA_POS);
       controlsRef.current.target.set(...DEFAULT_TARGET_POS);
       controlsRef.current.update();
+      
+      // Update state to match reset values
+      setCameraPositionState({ x: DEFAULT_CAMERA_POS[0], y: DEFAULT_CAMERA_POS[1], z: DEFAULT_CAMERA_POS[2] });
+      setCameraTargetState({ x: DEFAULT_TARGET_POS[0], y: DEFAULT_TARGET_POS[1], z: DEFAULT_TARGET_POS[2] });
+      setFocalLengthState(35);
+      
+      // Reset FOV to default (35mm focal length)
+      const sensorHeight = 24;
+      const fov = 2 * Math.atan(sensorHeight / (2 * 35)) * (180 / Math.PI);
+      cameraRef.current.fov = fov;
+      cameraRef.current.updateProjectionMatrix();
     }
   }, []);
 
@@ -532,6 +545,30 @@ export function useVrmViewer() {
       cameraRef.current.fov = fov;
       cameraRef.current.updateProjectionMatrix();
     }
+  }, []);
+
+  // Set camera position
+  const setCameraPosition = useCallback((axis: 'x' | 'y' | 'z', value: number) => {
+    setCameraPositionState((prev) => {
+      const newPos = { ...prev, [axis]: value };
+      if (cameraRef.current && controlsRef.current) {
+        cameraRef.current.position.set(newPos.x, newPos.y, newPos.z);
+        controlsRef.current.update();
+      }
+      return newPos;
+    });
+  }, []);
+
+  // Set camera target (orbit controls target / look-at point)
+  const setCameraTarget = useCallback((axis: 'x' | 'y' | 'z', value: number) => {
+    setCameraTargetState((prev) => {
+      const newTarget = { ...prev, [axis]: value };
+      if (controlsRef.current) {
+        controlsRef.current.target.set(newTarget.x, newTarget.y, newTarget.z);
+        controlsRef.current.update();
+      }
+      return newTarget;
+    });
   }, []);
 
   // Initialize on mount
@@ -563,5 +600,9 @@ export function useVrmViewer() {
     resetCamera,
     focalLength,
     setFocalLength,
+    cameraPosition,
+    setCameraPosition,
+    cameraTarget,
+    setCameraTarget,
   };
 }

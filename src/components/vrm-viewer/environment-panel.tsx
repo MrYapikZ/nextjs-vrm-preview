@@ -1,20 +1,30 @@
 'use client';
 
-import { Grid3X3, Palette, RotateCcw, Camera, Monitor, Focus } from 'lucide-react';
+import { Grid3X3, Palette, RotateCcw, Camera, Monitor, Focus, Move3D, Crosshair } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 
+interface CameraTransform {
+  x: number;
+  y: number;
+  z: number;
+}
+
 interface EnvironmentPanelProps {
   showGrid: boolean;
   bgColor: string;
   focalLength: number;
+  cameraPosition: CameraTransform;
+  cameraTarget: CameraTransform;
   onToggleGrid: (show: boolean) => void;
   onBgColorChange: (color: string) => void;
   onResetCamera: () => void;
   onFocalLengthChange: (focalLength: number) => void;
+  onCameraPositionChange: (axis: 'x' | 'y' | 'z', value: number) => void;
+  onCameraTargetChange: (axis: 'x' | 'y' | 'z', value: number) => void;
 }
 
 const PRESET_COLORS = [
@@ -40,10 +50,14 @@ export function EnvironmentPanel({
   showGrid,
   bgColor,
   focalLength,
+  cameraPosition,
+  cameraTarget,
   onToggleGrid,
   onBgColorChange,
   onResetCamera,
   onFocalLengthChange,
+  onCameraPositionChange,
+  onCameraTargetChange,
 }: EnvironmentPanelProps) {
   return (
     <div className="space-y-4 p-1">
@@ -68,6 +82,74 @@ export function EnvironmentPanel({
           <p className="text-xs text-muted-foreground">
             Use mouse to orbit, scroll to zoom, right-click to pan.
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Camera Position */}
+      <Card className="border-border/50 bg-card/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm font-medium">
+            <Move3D className="h-4 w-4" />
+            Position
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {(['x', 'y', 'z'] as const).map((axis) => (
+            <div key={axis} className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs text-muted-foreground uppercase w-4">{axis}</Label>
+                <input
+                  type="number"
+                  value={cameraPosition[axis]}
+                  onChange={(e) => onCameraPositionChange(axis, parseFloat(e.target.value) || 0)}
+                  step={0.1}
+                  className="h-7 w-20 rounded border border-input bg-background px-2 text-xs tabular-nums text-right focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+              <Slider
+                value={[cameraPosition[axis]]}
+                onValueChange={([value]) => onCameraPositionChange(axis, value)}
+                min={-10}
+                max={10}
+                step={0.1}
+                className="w-full"
+              />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Camera Target (Look At) */}
+      <Card className="border-border/50 bg-card/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm font-medium">
+            <Crosshair className="h-4 w-4" />
+            Target (Look At)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {(['x', 'y', 'z'] as const).map((axis) => (
+            <div key={axis} className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs text-muted-foreground uppercase w-4">{axis}</Label>
+                <input
+                  type="number"
+                  value={cameraTarget[axis]}
+                  onChange={(e) => onCameraTargetChange(axis, parseFloat(e.target.value) || 0)}
+                  step={0.1}
+                  className="h-7 w-20 rounded border border-input bg-background px-2 text-xs tabular-nums text-right focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+              <Slider
+                value={[cameraTarget[axis]]}
+                onValueChange={([value]) => onCameraTargetChange(axis, value)}
+                min={-5}
+                max={5}
+                step={0.1}
+                className="w-full"
+              />
+            </div>
+          ))}
         </CardContent>
       </Card>
 

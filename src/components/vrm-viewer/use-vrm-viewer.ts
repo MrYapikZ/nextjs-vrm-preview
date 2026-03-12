@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils, VRM } from '@pixiv/three-vrm';
-import { VRMAnimationLoaderPlugin, VRMAnimation, createVRMAnimationClip } from '@pixiv/three-vrm-animation';
+import { VRMAnimationLoaderPlugin, VRMAnimation, VRMLookAtQuaternionProxy, createVRMAnimationClip } from '@pixiv/three-vrm-animation';
 import {
   DEFAULT_CAMERA_POS,
   DEFAULT_TARGET_POS,
@@ -34,6 +34,8 @@ export function useVrmViewer() {
   // Animation refs
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const currentActionRef = useRef<THREE.AnimationAction | null>(null);
+  // Ref for the GLTF scene used in translation-based lookAt animations
+  const lookAtGltfSceneRef = useRef<THREE.Group | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [loadingText, setLoadingText] = useState('Initializing Engine...');
@@ -127,12 +129,7 @@ export function useVrmViewer() {
       animationFrameRef.current = requestAnimationFrame(animate);
       const delta = clockRef.current.getDelta();
 
-      // Update VRM
-      if (currentVrmRef.current) {
-        currentVrmRef.current.update(delta);
-      }
-
-      // Update mixer
+      // Update mixer FIRST so lookAt proxy sets yaw/pitch before vrm.update applies them
       if (mixerRef.current) {
         mixerRef.current.update(delta);
         const action = currentActionRef.current;
@@ -142,6 +139,11 @@ export function useVrmViewer() {
             animTime: action.time,
           }));
         }
+      }
+
+      // Update VRM after mixer so lookAt animation values are applied correctly
+      if (currentVrmRef.current) {
+        currentVrmRef.current.update(delta);
       }
 
       controls.update();
@@ -284,6 +286,13 @@ export function useVrmViewer() {
       mixerRef.current = null;
     }
     currentActionRef.current = null;
+
+    // Remove previous lookAt GLTF scene (translation-based lookAt)
+    if (lookAtGltfSceneRef.current && sceneRef.current) {
+      sceneRef.current.remove(lookAtGltfSceneRef.current);
+      lookAtGltfSceneRef.current = null;
+    }
+
     setAnimationState({
       mixer: null,
       currentAction: null,
@@ -371,6 +380,14 @@ export function useVrmViewer() {
 
       sceneRef.current.add(vrm.scene);
       currentVrmRef.current = vrm;
+
+      // Add VRMLookAtQuaternionProxy so lookAt animation tracks work out of the box
+      if (vrm.lookAt) {
+        const lookAtProxy = new VRMLookAtQuaternionProxy(vrm.lookAt);
+        lookAtProxy.name = 'VRMLookAtQuaternionProxy';
+        vrm.scene.add(lookAtProxy);
+      }
+
       setHasVrm(true);
 
       // Reset camera
@@ -396,41 +413,97 @@ export function useVrmViewer() {
       return;
     }
 
+    const vrm = currentVrmRef.current;
     setIsLoading(true);
     setLoadingText('Loading animation...');
 
-    const loader = new GLTFLoader();
-    loader.register((parser) => new VRMAnimationLoaderPlugin(parser));
+    // Stop current animation
+    if (mixerRef.current) {
+      mixerRef.current.stopAllAction();
+      mixerRef.current = null;
+    }
+    currentActionRef.current = null;
+
+    // Remove previous lookAt GLTF scene
+    if (lookAtGltfSceneRef.current && sceneRef.current) {
+      sceneRef.current.remove(lookAtGltfSceneRef.current);
+      lookAtGltfSceneRef.current = null;
+    }
+
+    // Reset lookAt target from previous translation-based animation
+    if (vrm.lookAt) {
+      vrm.lookAt.target = undefined;
+      vrm.lookAt.autoUpdate = false;
+    }
+
+    const url = URL.createObjectURL(file);
 
     try {
-      const url = URL.createObjectURL(file);
-      const gltf = await loader.loadAsync(url);
-      URL.revokeObjectURL(url);
+      let mixer: THREE.AnimationMixer;
+      let clip: THREE.AnimationClip;
 
-      const vrmAnimation = gltf.userData.vrmAnimations?.[0] as VRMAnimation;
-      if (!vrmAnimation) {
-        throw new Error('No VRM animation found in file');
+      // Try standard VRMA loading (quaternion-based lookAt)
+      try {
+        const vrmLoader = new GLTFLoader();
+        vrmLoader.register((parser) => new VRMAnimationLoaderPlugin(parser));
+        const gltf = await vrmLoader.loadAsync(url);
+
+        const vrmAnimation = gltf.userData.vrmAnimations?.[0] as VRMAnimation;
+        if (!vrmAnimation) throw new Error('No VRM animation found in file');
+
+        clip = createVRMAnimationClip(vrmAnimation, vrm);
+        mixer = new THREE.AnimationMixer(vrm.scene);
+      } catch (err) {
+        // Fallback: translation-based lookAt (animated target position)
+        // The library throws 'Invalid path "translation"' for this format
+        if (!(err instanceof Error) || !err.message.includes('Invalid path')) throw err;
+
+        const rawLoader = new GLTFLoader();
+        const gltf = await rawLoader.loadAsync(url);
+
+        if (!gltf.animations.length) throw new Error('No animations in file');
+        clip = gltf.animations[0];
+
+        // Find the lookAt target node from the VRMC_vrm_animation extension
+        const extension = (gltf.parser.json as Record<string, unknown> | undefined)
+          ?.extensions as Record<string, unknown> | undefined;
+        const vrmAnimExt = extension?.VRMC_vrm_animation as
+          | { lookAt?: { node?: number } }
+          | undefined;
+        const lookAtNodeIndex = vrmAnimExt?.lookAt?.node;
+
+        if (lookAtNodeIndex != null && vrm.lookAt) {
+          const threeNodes = (await gltf.parser.getDependencies('node')) as THREE.Object3D[];
+          const lookAtNode = threeNodes[lookAtNodeIndex];
+
+          if (lookAtNode) {
+            // Empty.001 is NOT in gltf.scene's hierarchy (not in scenes[0].nodes).
+            // Add it into gltf.scene so AnimationMixer can traverse to it and
+            // animate its position each frame.
+            gltf.scene.add(lookAtNode);
+
+            // Add the GLTF scene to the main scene so world matrices stay updated
+            sceneRef.current!.add(gltf.scene);
+            lookAtGltfSceneRef.current = gltf.scene;
+
+            // autoUpdate calls vrm.lookAt.lookAt(target.getWorldPosition()) on every vrm.update()
+            vrm.lookAt.target = lookAtNode;
+            vrm.lookAt.autoUpdate = true;
+          }
+        }
+
+        // Mixer runs on gltf.scene — now finds Empty.001 as a direct child
+        mixer = new THREE.AnimationMixer(gltf.scene);
       }
 
-      // Create mixer if not exists
-      if (!mixerRef.current) {
-        mixerRef.current = new THREE.AnimationMixer(currentVrmRef.current.scene);
-      }
-
-      // Stop current animation
-      if (currentActionRef.current) {
-        currentActionRef.current.stop();
-      }
-
-      // Create and play new animation
-      const clip = createVRMAnimationClip(vrmAnimation, currentVrmRef.current);
-      const action = mixerRef.current.clipAction(clip);
+      const action = mixer.clipAction(clip);
       action.play();
+      mixerRef.current = mixer;
       currentActionRef.current = action;
 
       setAnimationState((prev) => ({
         ...prev,
-        mixer: mixerRef.current,
+        mixer,
         currentAction: action,
         isPlaying: true,
         animDuration: clip.duration,
@@ -443,6 +516,8 @@ export function useVrmViewer() {
       console.error('Error loading VRMA:', error);
       setIsLoading(false);
       setLoadingText('Error loading animation');
+    } finally {
+      URL.revokeObjectURL(url);
     }
   }, []);
 

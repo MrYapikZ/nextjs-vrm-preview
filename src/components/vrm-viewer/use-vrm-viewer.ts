@@ -14,6 +14,65 @@ import {
   type AnimationState,
 } from './types';
 
+/**
+ * Strips translation-path lookAt channels from a VRMA GLB so that
+ * VRMAnimationLoaderPlugin (which only accepts rotation for lookAt) won't throw.
+ * Returns a patched Blob ready for re-loading.
+ */
+async function patchVRMARemoveTranslationLookAt(file: File, lookAtNodeIndex: number): Promise<Blob> {
+  const buf = await file.arrayBuffer();
+  const view = new DataView(buf);
+  const jsonLen = view.getUint32(12, true);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const json: any = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 20, jsonLen)));
+
+  let modified = false;
+  for (const anim of (json.animations ?? [])) {
+    const toRemove = new Set<number>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (anim.channels as any[]).forEach((ch: any, i: number) => {
+      if (ch.target.node === lookAtNodeIndex && ch.target.path === 'translation') toRemove.add(i);
+    });
+    if (toRemove.size === 0) continue;
+    modified = true;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const removedSamplers = new Set([...toRemove].map((i) => (anim.channels as any[])[i].sampler));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    anim.channels = (anim.channels as any[]).filter((_: any, i: number) => !toRemove.has(i));
+    const samplerMap = new Map<number, number>();
+    let idx = 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    anim.samplers = (anim.samplers as any[]).filter((_: any, i: number) => {
+      if (removedSamplers.has(i)) return false;
+      samplerMap.set(i, idx++);
+      return true;
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (anim.channels as any[]).forEach((ch: any) => { ch.sampler = samplerMap.get(ch.sampler) ?? ch.sampler; });
+  }
+
+  if (!modified) return new Blob([buf], { type: 'model/gltf-binary' });
+
+  const newJsonBytes = new TextEncoder().encode(JSON.stringify(json));
+  const padLen = Math.ceil(newJsonBytes.length / 4) * 4;
+  const jsonChunk = new Uint8Array(padLen).fill(0x20);
+  jsonChunk.set(newJsonBytes);
+
+  const rest = buf.slice(20 + jsonLen); // BIN chunk (length + type + data)
+  const total = 12 + 8 + padLen + rest.byteLength;
+  const out = new Uint8Array(total);
+  const outView = new DataView(out.buffer);
+  outView.setUint32(0, 0x46546c67, true); // magic
+  outView.setUint32(4, 2, true);          // version
+  outView.setUint32(8, total, true);      // totalLength
+  outView.setUint32(12, padLen, true);    // chunk0 length
+  outView.setUint32(16, 0x4e4f534a, true); // chunk0 type JSON
+  out.set(jsonChunk, 20);
+  out.set(new Uint8Array(rest), 20 + padLen);
+  return new Blob([out.buffer], { type: 'model/gltf-binary' });
+}
+
 export function useVrmViewer() {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -139,6 +198,12 @@ export function useVrmViewer() {
             animTime: action.time,
           }));
         }
+      }
+
+      // For translation-based lookAt: flush world matrices so vrm.lookAt.target.getWorldPosition()
+      // reads the position the mixer just wrote, not the previous frame's stale matrixWorld.
+      if (lookAtGltfSceneRef.current) {
+        lookAtGltfSceneRef.current.updateMatrixWorld(true);
       }
 
       // Update VRM after mixer so lookAt animation values are applied correctly
@@ -454,46 +519,80 @@ export function useVrmViewer() {
         clip = createVRMAnimationClip(vrmAnimation, vrm);
         mixer = new THREE.AnimationMixer(vrm.scene);
       } catch (err) {
-        // Fallback: translation-based lookAt (animated target position)
-        // The library throws 'Invalid path "translation"' for this format
+        // Fallback: translation-based lookAt (animated target position).
+        // VRMAnimationLoaderPlugin throws 'Invalid path "translation"' for this format.
         if (!(err instanceof Error) || !err.message.includes('Invalid path')) throw err;
 
-        const rawLoader = new GLTFLoader();
-        const gltf = await rawLoader.loadAsync(url);
+        // Load raw GLTF to inspect channels and extract the lookAt target node
+        const rawGltf = await new GLTFLoader().loadAsync(url);
 
-        if (!gltf.animations.length) throw new Error('No animations in file');
-        clip = gltf.animations[0];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const ext = (rawGltf.parser.json as any)?.extensions?.VRMC_vrm_animation as
+          | { lookAt?: { node?: number } } | undefined;
+        const lookAtNodeIndex = ext?.lookAt?.node;
 
-        // Find the lookAt target node from the VRMC_vrm_animation extension
-        const extension = (gltf.parser.json as Record<string, unknown> | undefined)
-          ?.extensions as Record<string, unknown> | undefined;
-        const vrmAnimExt = extension?.VRMC_vrm_animation as
-          | { lookAt?: { node?: number } }
-          | undefined;
-        const lookAtNodeIndex = vrmAnimExt?.lookAt?.node;
-
+        // Setup lookAt target node
+        let lookAtNode: THREE.Object3D | null = null;
         if (lookAtNodeIndex != null && vrm.lookAt) {
-          const threeNodes = (await gltf.parser.getDependencies('node')) as THREE.Object3D[];
-          const lookAtNode = threeNodes[lookAtNodeIndex];
-
+          const nodes = (await rawGltf.parser.getDependencies('node')) as THREE.Object3D[];
+          lookAtNode = nodes[lookAtNodeIndex] ?? null;
           if (lookAtNode) {
-            // Empty.001 is NOT in gltf.scene's hierarchy (not in scenes[0].nodes).
-            // Add it into gltf.scene so AnimationMixer can traverse to it and
-            // animate its position each frame.
-            gltf.scene.add(lookAtNode);
-
-            // Add the GLTF scene to the main scene so world matrices stay updated
-            sceneRef.current!.add(gltf.scene);
-            lookAtGltfSceneRef.current = gltf.scene;
-
-            // autoUpdate calls vrm.lookAt.lookAt(target.getWorldPosition()) on every vrm.update()
+            // lookAtNode is NOT in rawGltf.scene hierarchy — add it so the mixer finds it
+            rawGltf.scene.add(lookAtNode);
+            sceneRef.current!.add(rawGltf.scene);
+            lookAtGltfSceneRef.current = rawGltf.scene;
             vrm.lookAt.target = lookAtNode;
             vrm.lookAt.autoUpdate = true;
           }
         }
 
-        // Mixer runs on gltf.scene — now finds Empty.001 as a direct child
-        mixer = new THREE.AnimationMixer(gltf.scene);
+        // Check if the animation has body/expression channels beyond the lookAt translation
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rawChannels = ((rawGltf.parser.json as any)?.animations?.[0]?.channels ?? []) as any[];
+        const hasBodyChannels = rawChannels.some(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (ch: any) => !(ch.target.node === lookAtNodeIndex && ch.target.path === 'translation')
+        );
+
+        if (hasBodyChannels && lookAtNodeIndex != null) {
+          // Mixed case: body/expression + translation lookAt.
+          // Patch the GLB to remove the translation lookAt channel so VRMAnimationLoaderPlugin
+          // can process bones/expressions without throwing.
+          const patchedBlob = await patchVRMARemoveTranslationLookAt(file, lookAtNodeIndex);
+          const patchedUrl = URL.createObjectURL(patchedBlob);
+          try {
+            const vrmLoader = new GLTFLoader();
+            vrmLoader.register((parser) => new VRMAnimationLoaderPlugin(parser));
+            const patchedGltf = await vrmLoader.loadAsync(patchedUrl);
+            const vrmAnimation = patchedGltf.userData.vrmAnimations?.[0] as VRMAnimation | undefined;
+            if (!vrmAnimation) throw new Error('No VRM animation found in patched file');
+
+            // Body/expression clip with correct VRM coordinate transforms
+            const bodyClip = createVRMAnimationClip(vrmAnimation, vrm);
+
+            // Merge the lookAt translation track (from raw GLTF) into the body clip
+            // so a single mixer on the main scene drives everything
+            const lookAtTracks = lookAtNode && rawGltf.animations[0]
+              ? rawGltf.animations[0].tracks.filter((t) =>
+                  t.name.startsWith(lookAtNode!.name + '.'))
+              : [];
+            const allTracks = [...bodyClip.tracks, ...lookAtTracks];
+            clip = new THREE.AnimationClip(
+              'Animation',
+              Math.max(bodyClip.duration, rawGltf.animations[0]?.duration ?? 0),
+              allTracks
+            );
+            // Root at main scene — finds VRM bones (in vrm.scene) and lookAt node (in rawGltf.scene)
+            mixer = new THREE.AnimationMixer(sceneRef.current!);
+          } finally {
+            URL.revokeObjectURL(patchedUrl);
+          }
+        } else {
+          // LookAt-only case: play the raw animation directly on rawGltf.scene
+          if (!rawGltf.animations.length) throw new Error('No animations in file');
+          clip = rawGltf.animations[0];
+          mixer = new THREE.AnimationMixer(rawGltf.scene);
+        }
       }
 
       const action = mixer.clipAction(clip);
